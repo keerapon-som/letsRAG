@@ -26,3 +26,11 @@ type Model struct {
 type ListLocalModelsResponse struct {
 	Models []Model `json:"models"`
 }
+
+type TestToVectorResponse struct {
+	Model           string      `json:"model"`
+	Embeddings      [][]float64 `json:"embeddings"`
+	TotalDuration   int         `json:"total_duration"`
+	LoadDuration    int         `json:"load_duration"`
+	PromptEvalCount int         `json:"prompt_eval_count"`
+}

@@ -1,56 +1,28 @@
 package main
 
 import (
-	"fmt"
-	"letsrag/entities"
+	"letsrag/api"
 	"letsrag/ollama"
 	"letsrag/postgresql"
+	"letsrag/repository"
 	"log"
 )
 
 func main() {
-	connStr := "user=new_user dbname=postgres sslmode=disable password=new_password host=localhost port=5432"
+	connStr := "postgres://yourusername:yourpassword@localhost:5432/yourdatabase?sslmode=disable"
 	if err := postgresql.InitDB(connStr); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-
-	if err := postgresql.DB().Ping(); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
-	}
-
 	ollama := ollama.NewOllama("http://localhost:11434")
-	list, err := ollama.ListLocalModels()
+	lrag := api.NewLetsRag(
+		api.NewAI(ollama),
+		*api.NewTextToVector(ollama),
+		repository.NewDocumentRepoPostgresql(),
+	)
+	docs, err := lrag.GetRelatedDocuments("Hi brother", api.MODEL_ALL_MINILM, 1)
 	if err != nil {
-		log.Fatalf("Failed to list local models: %v", err)
+		log.Fatalf("Failed to get related documents: %v", err)
 	}
-	fmt.Println("List is ", list)
-	// err = ollama.DeleteModel(list[0].Name)
-	// if err != nil {
-	// 	log.Fatalf("Failed to delete model: %v", err)
-	// }
-
-	receiveCh := make(chan entities.PullAModelStatus)
-	closeCh := make(chan struct{})
-
-	err = ollama.PullModel("llama3.2", false).Stream(receiveCh, closeCh)
-	if err != nil {
-		log.Fatalf("Failed to stream model: %v", err)
-	}
-	defer close(receiveCh)
-	defer close(closeCh)
-
-	for {
-		select {
-		case status := <-receiveCh:
-			fmt.Println(status)
-			if status.Status == "success" {
-				return
-			}
-		case <-closeCh:
-			fmt.Println("Stream closed")
-			return
-
-		}
-	}
-
+	log.Println(docs)
+	postgresql.CloseDB()
 }
