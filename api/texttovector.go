@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"letsrag/ollama"
 )
 
@@ -31,7 +30,5 @@ func (t *TextToVector) ConvertTextToVector(text string, model string) ([][]float
 		return [][]float64{}, err
 	}
 
-	dimention := len(resp.Embeddings[0])
-	fmt.Println("Dimention : ", dimention)
 	return resp.Embeddings, nil
 }
