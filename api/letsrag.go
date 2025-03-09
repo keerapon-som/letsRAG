@@ -5,6 +5,7 @@ import (
 	"letsrag/entities"
 	"letsrag/entities/db"
 	"letsrag/ollama"
+	"strconv"
 )
 
 const (
@@ -77,13 +78,13 @@ func (l *LetRags) GenerateCompletionRAG(ask string, modelName string, vectorMode
 		fmt.Println("Error : ", err)
 	}
 
-	documentList := ""
-	for _, doc := range docs {
-		documentList += doc.Document + "\n"
+	documentList := "\n"
+	for i, doc := range docs {
+		documentList += "Doc No." + strconv.Itoa(i+1) + " " + doc.Document + "\n"
 	}
 
-	promth := "This is Document that you can get for answer \n" + documentList + "So please answer this queation " + ask
-	fmt.Println("Promth : ", promth)
+	promth := "\nThis is Document that you can get for answer \n" + documentList + "\nSo please answer this queation " + ask
+	fmt.Println("--------------------------------------------------------------\nคำถาม : ", promth)
 
 	genRequest := entities.GenerateACompletionRequest{
 		Model:  modelName,

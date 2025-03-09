@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"letsrag/entities"
 	"letsrag/ollama"
 	"letsrag/postgresql"
 	"letsrag/repository"
@@ -9,6 +11,41 @@ import (
 	"log"
 	"testing"
 )
+
+func TestListAllModel(t *testing.T) {
+	ollama := ollama.NewOllama("http://localhost:11434")
+	models, err := ollama.ListLocalModels()
+	if err != nil {
+		log.Fatalf("Failed to list models: %v", err)
+	}
+
+	for _, model := range models {
+		fmt.Println(model.Name)
+	}
+}
+
+func TestDeleteAModel(t *testing.T) {
+	ollama := ollama.NewOllama("http://localhost:11434")
+	err := ollama.DeleteModel("qqq")
+	if err != nil {
+		log.Fatalf("Failed to delete model: %v", err)
+	}
+}
+
+func TestPullAModel(t *testing.T) {
+	ollama := ollama.NewOllama("http://localhost:11434")
+
+	resCh := make(chan entities.PullAModelStatus)
+	errorCh := make(chan struct{})
+	err := ollama.PullModel("all-minilm", false).Stream(resCh, errorCh)
+	if err != nil {
+		log.Fatalf("Failed to list models: %v", err)
+	}
+
+	for res := range resCh {
+		fmt.Println(res)
+	}
+}
 
 func TestCreateTable(t *testing.T) {
 	connStr := "postgres://yourusername:yourpassword@localhost:5432/yourdatabase?sslmode=disable"
