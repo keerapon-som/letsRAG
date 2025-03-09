@@ -6,4 +6,4 @@ This repository is a Proof of Concept (POC) on how to perform basic Retrieval-Au
 
 ## Demo
 
-[Watch the demo video on YouTube](https://www.youtube.com/watch?v=kvcqdqZHmQ8)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/kvcqdqZHmQ8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
