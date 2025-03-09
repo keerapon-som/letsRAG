@@ -21,37 +21,40 @@ func NewDocumentRepoPostgresql() *documentRepoPosgresql {
 	}
 }
 
-func (d *documentRepoPosgresql) CreateDocumentTable() error { // VECTOR 384 ขึ้นอยู่กับว่า ตอน Gen Text To Vector กำหนด Dimension ไว้เท่าไหร่
+func (d *documentRepoPosgresql) CreateDocumentTable() error {
 	query := `
-	CREATE EXTENSION IF NOT EXISTS vector;
-	CREATE TABLE IF NOT EXISTS documents (
-		id SERIAL PRIMARY KEY,
-		document TEXT,
-		vector VECTOR(384) -- Adjust the dimension as needed
-	)`
+    CREATE EXTENSION IF NOT EXISTS vector;
+    CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        document TEXT,
+        vector VECTOR, -- Adjust the dimension as needed
+        vector_model_name TEXT
+    )`
 	_, err := d.pgDB.Exec(query)
 	return err
 }
 
-func (d *documentRepoPosgresql) SaveDocument(document string, vector []float64) error {
+func (d *documentRepoPosgresql) SaveDocument(document string, vector []float64, vectorModelName string) error {
 	// Convert the vector to a string in the format expected by the VECTOR type
+	fmt.Println("Do Insert Document ", document, " vector model name ", vectorModelName)
 	vectorStr := fmt.Sprintf("[%s]", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(vector)), ","), "[]"))
 	query := `
-    INSERT INTO documents (document, vector)
-    VALUES ($1, $2::vector)`
-	_, err := d.pgDB.Exec(query, document, vectorStr)
+    INSERT INTO documents (document, vector, vector_model_name)
+    VALUES ($1, $2::vector, $3)`
+	_, err := d.pgDB.Exec(query, document, vectorStr, vectorModelName)
 	return err
 }
 
-func (d *documentRepoPosgresql) GetRelatedDocumentsByVector(vector []float64, limit int) ([]db.Document, error) {
+func (d *documentRepoPosgresql) GetRelatedDocumentsByVector(vector []float64, vectorModelName string, limit int) ([]db.Document, error) {
 	// Convert the vector to a string in the format expected by the VECTOR type
 	vectorStr := fmt.Sprintf("[%s]", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(vector)), ","), "[]"))
 	query := `
-    SELECT document, vector
+    SELECT document, vector, vector_model_name
     FROM documents
+    WHERE vector_model_name = $2
     ORDER BY vector <-> $1::vector
-    LIMIT $2`
-	rows, err := d.pgDB.Query(query, vectorStr, limit)
+    LIMIT $3`
+	rows, err := d.pgDB.Query(query, vectorStr, vectorModelName, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +64,7 @@ func (d *documentRepoPosgresql) GetRelatedDocumentsByVector(vector []float64, li
 	for rows.Next() {
 		var doc db.Document
 		var vectorStr string
-		if err := rows.Scan(&doc.Document, &vectorStr); err != nil {
+		if err := rows.Scan(&doc.Document, &vectorStr, &doc.VectorModelName); err != nil {
 			return nil, err
 		}
 		// Convert the vector string back to a slice of float64
@@ -92,9 +95,9 @@ func (d *documentRepoPosgresql) EditDocuments(docs []db.Document) error {
 	for _, doc := range docs {
 		query := `
 		UPDATE documents
-		SET document = $1, vector = $2
-		WHERE id = $3`
-		_, err := d.pgDB.Exec(query, doc.Document, pq.Array(doc.Vector), doc.ID)
+		SET document = $1, vector = $2, vector_model_name = $3
+		WHERE id = $4`
+		_, err := d.pgDB.Exec(query, doc.Document, pq.Array(doc.Vector), doc.VectorModelName, doc.ID)
 		if err != nil {
 			return err
 		}
@@ -104,7 +107,7 @@ func (d *documentRepoPosgresql) EditDocuments(docs []db.Document) error {
 
 func (d *documentRepoPosgresql) GetDocumentsByIndex(index []int) ([]db.Document, error) {
 	query := `
-	SELECT document, vector
+	SELECT document, vector, vector_model_name
 	FROM documents
 	WHERE id = ANY($1)`
 	rows, err := d.pgDB.Query(query, pq.Array(index))
@@ -126,7 +129,7 @@ func (d *documentRepoPosgresql) GetDocumentsByIndex(index []int) ([]db.Document,
 
 func (d *documentRepoPosgresql) GetDocumentsByRangeOfIndex(start, end int) ([]db.Document, error) {
 	query := `
-	SELECT document, vector
+	SELECT document, vector, vector_model_name
 	FROM documents
 	WHERE id BETWEEN $1 AND $2`
 	rows, err := d.pgDB.Query(query, start, end)
@@ -144,10 +147,4 @@ func (d *documentRepoPosgresql) GetDocumentsByRangeOfIndex(start, end int) ([]db
 		documents = append(documents, doc)
 	}
 	return documents, nil
-}
-
-// Assuming you have a function to convert text to vector
-func textToVector(text string) []float64 {
-	// Implement your text to vector conversion logic here
-	return []float64{0.0, 0.0, 0.0} // Example vector
 }

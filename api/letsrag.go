@@ -13,16 +13,12 @@ const (
 )
 
 type DocumentRepo interface {
-	SaveDocument(document string, vector []float64) error
-	GetRelatedDocumentsByVector(vector []float64, limit int) ([]db.Document, error)
+	SaveDocument(document string, vector []float64, vectorModelName string) error
+	GetRelatedDocumentsByVector(vector []float64, modelName string, limit int) ([]db.Document, error)
 }
 
 type TextToVectorService interface {
 	ConvertTextToVector(text string, model string) ([][]float64, error)
-}
-
-type AIService interface {
-	GenerateACompletion(req entities.GenerateACompletionRequest) *ollama.GenerateACompletion
 }
 
 type LetRags struct {
@@ -45,7 +41,7 @@ func (l *LetRags) SaveDocumentToDB(text string, modelName string) error {
 		return err
 	}
 
-	return l.repo.SaveDocument(text, vector[0])
+	return l.repo.SaveDocument(text, vector[0], modelName)
 }
 
 func (l *LetRags) GetRelatedDocuments(text string, modelName string, limit int) ([]string, error) {
@@ -54,7 +50,7 @@ func (l *LetRags) GetRelatedDocuments(text string, modelName string, limit int) 
 		return []string{}, err
 	}
 
-	docs, err := l.repo.GetRelatedDocumentsByVector(vector[0], limit)
+	docs, err := l.repo.GetRelatedDocumentsByVector(vector[0], modelName, limit)
 	if err != nil {
 		return []string{}, err
 	}
@@ -68,16 +64,15 @@ func (l *LetRags) GetRelatedDocuments(text string, modelName string, limit int) 
 }
 
 type GenerateCompletionRAG struct {
-	generateCompletionRequest *entities.GenerateACompletionRequest
-	GenCompletion             *ollama.GenerateACompletion
+	GenCompletion *ollama.GenerateACompletion
 }
 
-func (l *LetRags) GenerateCompletionRAG(ask string, modelName string, vectorModel string) *GenerateCompletionRAG {
+func (l *LetRags) GenerateCompletionRAG(ask string, modelName string, vectorModel string, numberOfDocumentRef int) *GenerateCompletionRAG {
 	// findDatabasefirst
 	// turn promth to vector
 	vectors, _ := l.textToVector.ConvertTextToVector(ask, vectorModel)
 
-	docs, err := l.repo.GetRelatedDocumentsByVector(vectors[0], 2)
+	docs, err := l.repo.GetRelatedDocumentsByVector(vectors[0], vectorModel, numberOfDocumentRef)
 	if err != nil {
 		fmt.Println("Error : ", err)
 	}
@@ -96,13 +91,11 @@ func (l *LetRags) GenerateCompletionRAG(ask string, modelName string, vectorMode
 	}
 
 	return &GenerateCompletionRAG{
-		generateCompletionRequest: &genRequest,
-		GenCompletion:             l.ollama.GenerateACompletion(genRequest),
+		GenCompletion: l.ollama.GenerateACompletion(genRequest),
 	}
 }
 
 func (g *GenerateCompletionRAG) Stream(ch chan []byte) error {
-	g.generateCompletionRequest.Stream = true
 	g.GenCompletion.Stream(ch)
 	return nil
 }

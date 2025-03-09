@@ -21,11 +21,21 @@ type Response struct {
 	} `json:"choices"`
 }
 
-func main() {
+func init() {
 	connStr := "postgres://yourusername:yourpassword@localhost:5432/yourdatabase?sslmode=disable"
 	if err := postgresql.InitDB(connStr); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
+
+	// err := repository.NewDocumentRepoPostgresql().CreateDocumentTable()
+	// if err != nil {
+	// 	log.Fatalf("Failed to create document table: %v", err)
+	// }
+
+}
+
+func main() {
+
 	ollama := ollama.NewOllama("http://localhost:11434")
 
 	lrag := api.NewLetsRag(
@@ -34,10 +44,9 @@ func main() {
 		ollama,
 	)
 
-	// resCh := make(chan entities.GenerateACompletionResponse)
 	resCh := make(chan []byte)
 
-	err := lrag.GenerateCompletionRAG("who's the littlest guy in yimz house ?", api.MODEL_RAG_LLAMA, api.MODEL_ALL_MINILM).Stream(resCh)
+	err := lrag.GenerateCompletionRAG("Do you know Doggo ?", api.MODEL_RAG_LLAMA, api.MODEL_ALL_MINILM, 2).Stream(resCh)
 	if err != nil {
 		log.Fatalf("Failed to generate completion: %v", err)
 	}
@@ -50,11 +59,10 @@ func main() {
 			log.Fatalf("Failed to unmarshal response: %v", err)
 		}
 		if respJsonStruct.Done {
+			fmt.Println(result)
 			return
 		}
 		result += respJsonStruct.Response
-		fmt.Println(result)
 	}
-	fmt.Println("result")
 
 }
